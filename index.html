@@ -218,15 +218,17 @@ async function loadMonth() {
   try {
     document.getElementById('ledger-entries-list').innerHTML = '<div class="loading">Updating ledger cards...</div>';
     
-    const { data: sData, error: sErr } = await sb.from('monthly_salary').select('salary').eq('month_key', currentMonthKey).maybeSingle();
+    // 1. MAKE SURE THIS SAYS wife_salary
+    const { data: sData, error: sErr } = await sb.from('wife_salary').select('salary').eq('month_key', currentMonthKey).maybeSingle();
     if (sErr) throw sErr;
     
-    const { data: tData, error: tErr } = await sb.from('transactions').select('*').eq('month_key', currentMonthKey).order('date', {ascending:false});
+    // 2. MAKE SURE THIS SAYS wife_transactions
+    const { data: tData, error: tErr } = await sb.from('wife_transactions').select('*').eq('month_key', currentMonthKey).order('date', {ascending:false});
     if (tErr) throw tErr;
     
     monthData = { salary: sData?.salary || 0, transactions: tData || [] };
     render();
-  } catch(e) { 
+  } catch(e) {
     document.getElementById('ledger-entries-list').innerHTML = `<div class="loading" style="color:var(--accent2)">Data Load Error: ${e.message || e}</div>`; 
   }
 }
