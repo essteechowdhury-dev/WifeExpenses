@@ -218,12 +218,10 @@ async function loadMonth() {
   try {
     document.getElementById('ledger-entries-list').innerHTML = '<div class="loading">Updating ledger cards...</div>';
     
-    // Configured for wife_salary
-    const { data: sData, error: sErr } = await sb.from('wife_salary').select('salary').eq('month_key', currentMonthKey).maybeSingle();
+    const { data: sData, error: sErr } = await sb.from('monthly_salary').select('salary').eq('month_key', currentMonthKey).maybeSingle();
     if (sErr) throw sErr;
     
-    // Configured for wife_transactions
-    const { data: tData, error: tErr } = await sb.from('wife_transactions').select('*').eq('month_key', currentMonthKey).order('date', {ascending:false});
+    const { data: tData, error: tErr } = await sb.from('transactions').select('*').eq('month_key', currentMonthKey).order('date', {ascending:false});
     if (tErr) throw tErr;
     
     monthData = { salary: sData?.salary || 0, transactions: tData || [] };
@@ -318,8 +316,7 @@ async function saveSalary() {
   display.style.display = 'inline-block';
   input.style.display = 'none';
 
-  // Configured for wife_salary
-  const { error } = await sb.from('wife_salary').upsert({month_key: currentMonthKey, salary: val}, {onConflict:'month_key'});
+  const { error } = await sb.from('monthly_salary').upsert({month_key: currentMonthKey, salary: val}, {onConflict:'month_key'});
   if (error) {
     alert(`Salary Sync Blocked!\nCode: ${error.code}\nMessage: ${error.message}\nDetails: ${error.details}`);
   }
@@ -354,8 +351,7 @@ async function saveTransaction() {
   const payload = { month_key: currentMonthKey, type: currentType, category, description, amount, date };
   closeModal();
   
-  // Configured for wife_transactions
-  const { error } = await sb.from('wife_transactions').insert([payload]);
+  const { error } = await sb.from('transactions').insert([payload]);
   if (error) {
     alert(`Transaction Write Blocked!\nCode: ${error.code}\nMessage: ${error.message}\nDetails: ${error.details}`);
   }
@@ -366,36 +362,17 @@ async function deleteTransaction(event, id) {
   if (event) { event.preventDefault(); event.stopPropagation(); }
   if (!confirm("Permanently delete this row?")) return;
   
-  // Configured for wife_transactions
-  const { error } = await sb.from('wife_transactions').delete().match({ id: id });
+  const { error } = await sb.from('transactions').delete().match({ id: id });
   if (error) {
     alert(`Deletion Request Rejected!\nCode: ${error.code}\nMessage: ${error.message}`);
   }
   await loadMonth();
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
-  const url = "https://jikqrfseacrrekpolbsa.supabase.co";
-  let key = localStorage.getItem('sb_key_clean_wife');
-  
-  if (!key) {
-    key = "sb_publishable_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppa3FyZnNlYWNycmVrcG9sYnNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA0MTUyMjUsImV4cCI6MjA1NjAwMTIyNX0.WIdFj06g7eG6m9Uf4gCstRIsZ48L4fX6Vn67YwD7yZk";
-  }
-
-  try { 
-    sb = supabase.createClient(url, key); 
-    // Testing wife_salary connection
-    const { error } = await sb.from('wife_salary').select('salary').limit(1);
-    if (error && error.message.includes("Invalid API key")) throw new Error("Invalid Key");
-    localStorage.setItem('sb_key_clean_wife', key);
-    initApp(); 
-  } catch(e) {
-    const freshKey = prompt("Please enter the shared default publishable key to complete her app setup:");
-    if (freshKey) {
-      localStorage.setItem('sb_key_clean_wife', freshKey.trim());
-      location.reload();
-    }
-  }
+window.addEventListener('DOMContentLoaded', () => {
+  const url = "https://qpkwtinwqtetebhqdwji.supabase.co";
+  const key = "sb_publishable_5GwvJ-Ks1enlu-QEc86_6g_8MVrPRa3";
+  try { sb = supabase.createClient(url, key); initApp(); } catch(e){}
 });
 </script>
 </body>
