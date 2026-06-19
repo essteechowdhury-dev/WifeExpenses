@@ -218,17 +218,17 @@ async function loadMonth() {
   try {
     document.getElementById('ledger-entries-list').innerHTML = '<div class="loading">Updating ledger cards...</div>';
     
-    // 1. MAKE SURE THIS SAYS wife_salary
+    // Configured for wife_salary
     const { data: sData, error: sErr } = await sb.from('wife_salary').select('salary').eq('month_key', currentMonthKey).maybeSingle();
     if (sErr) throw sErr;
     
-    // 2. MAKE SURE THIS SAYS wife_transactions
+    // Configured for wife_transactions
     const { data: tData, error: tErr } = await sb.from('wife_transactions').select('*').eq('month_key', currentMonthKey).order('date', {ascending:false});
     if (tErr) throw tErr;
     
     monthData = { salary: sData?.salary || 0, transactions: tData || [] };
     render();
-  } catch(e) {
+  } catch(e) { 
     document.getElementById('ledger-entries-list').innerHTML = `<div class="loading" style="color:var(--accent2)">Data Load Error: ${e.message || e}</div>`; 
   }
 }
@@ -318,7 +318,8 @@ async function saveSalary() {
   display.style.display = 'inline-block';
   input.style.display = 'none';
 
-  const { error } = await sb.from('monthly_salary').upsert({month_key: currentMonthKey, salary: val}, {onConflict:'month_key'});
+  // Configured for wife_salary
+  const { error } = await sb.from('wife_salary').upsert({month_key: currentMonthKey, salary: val}, {onConflict:'month_key'});
   if (error) {
     alert(`Salary Sync Blocked!\nCode: ${error.code}\nMessage: ${error.message}\nDetails: ${error.details}`);
   }
@@ -353,7 +354,8 @@ async function saveTransaction() {
   const payload = { month_key: currentMonthKey, type: currentType, category, description, amount, date };
   closeModal();
   
-  const { error } = await sb.from('transactions').insert([payload]);
+  // Configured for wife_transactions
+  const { error } = await sb.from('wife_transactions').insert([payload]);
   if (error) {
     alert(`Transaction Write Blocked!\nCode: ${error.code}\nMessage: ${error.message}\nDetails: ${error.details}`);
   }
@@ -364,7 +366,8 @@ async function deleteTransaction(event, id) {
   if (event) { event.preventDefault(); event.stopPropagation(); }
   if (!confirm("Permanently delete this row?")) return;
   
-  const { error } = await sb.from('transactions').delete().match({ id: id });
+  // Configured for wife_transactions
+  const { error } = await sb.from('wife_transactions').delete().match({ id: id });
   if (error) {
     alert(`Deletion Request Rejected!\nCode: ${error.code}\nMessage: ${error.message}`);
   }
@@ -373,7 +376,7 @@ async function deleteTransaction(event, id) {
 
 window.addEventListener('DOMContentLoaded', async () => {
   const url = "https://jikqrfseacrrekpolbsa.supabase.co";
-  let key = localStorage.getItem('sb_key_clean');
+  let key = localStorage.getItem('sb_key_clean_wife');
   
   if (!key) {
     key = "sb_publishable_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppa3FyZnNlYWNycmVrcG9sYnNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA0MTUyMjUsImV4cCI6MjA1NjAwMTIyNX0.WIdFj06g7eG6m9Uf4gCstRIsZ48L4fX6Vn67YwD7yZk";
@@ -381,14 +384,15 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   try { 
     sb = supabase.createClient(url, key); 
-    const { error } = await sb.from('monthly_salary').select('salary').limit(1);
+    // Testing wife_salary connection
+    const { error } = await sb.from('wife_salary').select('salary').limit(1);
     if (error && error.message.includes("Invalid API key")) throw new Error("Invalid Key");
-    localStorage.setItem('sb_key_clean', key);
+    localStorage.setItem('sb_key_clean_wife', key);
     initApp(); 
   } catch(e) {
-    const freshKey = prompt("The default API Key expired or was cut off. Please paste your fresh 'default publishable key' here:");
+    const freshKey = prompt("Please enter the shared default publishable key to complete her app setup:");
     if (freshKey) {
-      localStorage.setItem('sb_key_clean', freshKey.trim());
+      localStorage.setItem('sb_key_clean_wife', freshKey.trim());
       location.reload();
     }
   }
