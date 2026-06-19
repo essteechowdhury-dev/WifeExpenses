@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Expenses">
+<title>Expense Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght=300;400;500;600&family=DM+Mono:wght=400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f7f6f3; --surface: #ffffff; --border: rgba(0,0,0,0.08); --border2: rgba(0,0,0,0.14);
+    --text: #1a1a18; --text2: #6b6b67; --text3: #9b9b96; --accent: #2d6a4f; --accent-light: #e8f5ef;
+    --accent2: #d62828; --accent2-light: #fce8e8; --radius: 14px; --radius-sm: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; max-width: 430px; margin: 0 auto; position: relative; overflow-x: hidden; }
+  
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 1.25rem 0.75rem; position: sticky; top: 0; z-index: 50; }
+  .header-top { display: flex; align-items: center; justify-content: space-between; }
+  .header-title { font-size: 18px; font-weight: 600; }
+  .month-nav { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .month-nav button { background: none; border: 1px solid var(--border2); border-radius: 6px; padding: 4px 8px; font-size: 13px; cursor: pointer; color: var(--text2); }
+  .month-label { font-size: 13px; font-weight: 500; flex: 1; text-align: center; }
+  
+  .dashboard-content { padding: 1.25rem 1.25rem 120px; }
+  
+  .salary-card { background: var(--surface); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow); display: flex; align-items: center; justify-content: space-between; }
+  .salary-info-block { display: flex; align-items: center; gap: 10px; }
+  .salary-label { font-size: 14px; color: var(--text2); font-weight: 500; }
+  .salary-display-val { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 600; color: var(--text); }
+  .salary-input-inline { border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 14px; width: 90px; text-align: right; font-family: 'DM Mono', monospace; outline: none; background: var(--bg); color: var(--text); }
+  .salary-edit-trigger { background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--text2); }
+  
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--surface); border-radius: var(--radius-sm); padding: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .stat-value { font-size: 20px; font-weight: 600; }
+  .stat-value.positive { color: var(--accent); }
+  .stat-value.negative { color: var(--accent2); }
+  
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; margin-top: 1.5rem; }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .cat-breakdown { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 0.5rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); }
+  .cat-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--bg); font-size: 14px; }
+  .cat-row:last-child { border-bottom: none; }
+  .cat-row-label { display: flex; align-items: center; gap: 8px; color: var(--text); }
+  .cat-row-amount { font-weight: 500; color: var(--text); font-family: 'DM Mono', monospace; }
+  
+  .tx-list { display: flex; flex-direction: column; gap: 8px; }
+  .tx-item { background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+  .tx-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .tx-info { flex: 1; min-width: 0; }
+  .tx-desc { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx-cat { font-size: 12px; color: var(--text3); margin-top: 1px; }
+  .tx-right { text-align: right; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .tx-amount { font-size: 15px; font-weight: 600; font-family: 'DM Mono', monospace; }
+  .tx-amount.out { color: var(--accent2); }
+  .tx-amount.in { color: var(--accent); }
+  .tx-delete-btn { background: none; border: 1px solid var(--border2); border-radius: 6px; font-size: 12px; padding: 4px 8px; cursor: pointer; color: var(--text2); transition: all 0.1s; }
+  .tx-delete-btn:active { background: var(--accent2-light); color: var(--accent2); border-color: var(--accent2); }
+  
+  .fab { position: fixed; bottom: calc(24px + var(--safe-bottom)); right: 24px; width: 56px; height: 56px; border-radius: 28px; background: var(--accent); color: #fff; border: none; font-size: 28px; cursor: pointer; box-shadow: 0 4px 20px rgba(45,106,79,0.4); display: flex; align-items: center; justify-content: center; z-index: 40; }
+  
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; display: none; align-items: flex-end; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; padding: 1.25rem 1.25rem calc(1.25rem + var(--safe-bottom)); max-height: 92dvh; overflow-y: auto; }
+  .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1.25rem; }
+  .type-btn { padding: 10px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: none; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--text2); }
+  .type-btn.active.expense { background: var(--accent2-light); border-color: var(--accent2); color: var(--accent2); }
+  .type-btn.active.income { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 13px; color: var(--text2); font-weight: 500; margin-bottom: 6px; }
+  .field input, .field select { width: 100%; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 11px 12px; font-size: 15px; background: var(--bg); color: var(--text); outline: none; }
+  .save-btn { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); padding: 14px; font-size: 16px; font-weight: 500; cursor: pointer; margin-top: 1rem; }
+  .loading { text-align: center; padding: 2rem; color: var(--text3); font-size: 14px; }
+  
+  .cat-home { background: #e3f2f9; color: #1a5f7a; }
+  .cat-bills { background: #fff3e0; color: #e07b00; }
+  .cat-supermarket { background: #e8f5ef; color: #2d6a4f; }
+  .cat-transportation { background: #ede7f6; color: #5e35b1; }
+  .cat-entertainment { background: #fce4ec; color: #c2185b; }
+  .cat-savings { background: #e8eaf6; color: #3949ab; }
+  .cat-others { background: #f5f5f5; color: #616161; }
+  .cat-received { background: #e8f5ef; color: #2d6a4f; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="header">
+    <div class="header-top">
+      <div class="header-title" id="header-month-title">Loading Ledger...</div>
+    </div>
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)">‹ Prev</button>
+      <div class="month-label" id="month-label">Loading Ledger...</div>
+      <button onclick="changeMonth(1)">Next ›</button>
+    </div>
+  </div>
+  
+  <div class="dashboard-content">
+    <div class="salary-card">
+      <div class="salary-info-block">
+        <label class="salary-label">Salary €</label>
+        <div id="salary-display" class="salary-display-val">0</div>
+        <input type="number" id="salary-input" class="salary-input-inline" style="display:none" onblur="saveSalary()" onkeydown="if(event.key==='Enter')saveSalary()">
+      </div>
+      <button class="salary-edit-trigger" onclick="toggleSalaryEdit()">Edit</button>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total received</div>
+        <div class="stat-value positive" id="stat-received">€0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total spent</div>
+        <div class="stat-value negative" id="stat-spent">€0</div>
+      </div>
+    </div>
+    
+    <div class="stat-grid" style="grid-template-columns: 1fr;">
+      <div class="stat-card" style="text-align: center;">
+        <div class="stat-label">Total left</div>
+        <div class="stat-value" id="stat-left" style="font-size: 26px;">€0</div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Spending By Category</div>
+    </div>
+    <div class="cat-breakdown" id="cat-breakdown-panel">
+      <div style="text-align:center; padding:1rem; color:var(--text3); font-size:13px;">No item metrics logged.</div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Transactions Ledger</div>
+    </div>
+    <div class="tx-list" id="ledger-entries-list">
+      <div class="loading">Fetching secure cloud records...</div>
+    </div>
+  </div>
+
+  <button class="fab" onclick="openAddModal()">+</button>
+</div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="type-toggle">
+      <button class="type-btn active expense" id="type-expense" onclick="setType('expense')">Expense</button>
+      <button class="type-btn income" id="type-income" onclick="setType('income')">Received</button>
+    </div>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="field-date">
+    </div>
+    <div class="field" id="cat-wrapper">
+      <label>Category</label>
+      <select id="field-category">
+        <option value="Supermarket">🛒 Supermarket</option>
+        <option value="Home">🏠 Home</option>
+        <option value="Bills">💡 Bills</option>
+        <option value="Transportation">🚇 Transportation</option>
+        <option value="Entertainment">🎬 Entertainment</option>
+        <option value="Savings">🏦 Savings</option>
+        <option value="Others">📦 Others</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <input type="text" id="field-desc" placeholder="What was this for?">
+    </div>
+    <div class="field">
+      <label id="amount-label">Amount (€)</label>
+      <input type="number" id="field-amount" placeholder="0.00" step="0.01">
+    </div>
+    <button class="save-btn" onclick="saveTransaction()">Save Entry</button>
+  </div>
+</div>
+
+<script>
+let sb = null, currentMonthKey = '', monthData = { salary: 0, transactions: [] }, currentType = 'expense';
+
+const CAT_ICONS = { Home:'🏠', Bills:'💡', Supermarket:'🛒', Transportation:'🚇', Entertainment:'🎬', Savings:'🏦', Others:'📦', Received:'💰' };
+const CAT_COLORS = { Home:'cat-home', Bills:'cat-bills', Supermarket:'cat-supermarket', Transportation:'cat-transportation', Entertainment:'cat-entertainment', Others:'cat-others', Savings:'cat-savings', Received:'cat-received' };
+
+function getMonthKey(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+function formatMonthLabel(key) { const [y,m] = key.split('-'); return new Date(y, m-1, 1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); }
+function fmt(n) { return '€' + Math.abs(n).toFixed(2).replace(/\.00$/,''); }
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function initApp() {
+  currentMonthKey = getMonthKey(new Date());
+  updateMonthLabels();
+  await loadMonth();
+}
+
+function updateMonthLabels() {
+  const lbl = formatMonthLabel(currentMonthKey);
+  document.getElementById('month-label').textContent = lbl;
+  document.getElementById('header-month-title').textContent = lbl;
+}
+
+async function changeMonth(dir) {
+  const [y,m] = currentMonthKey.split('-').map(Number);
+  currentMonthKey = getMonthKey(new Date(y, m-1+dir, 1));
+  updateMonthLabels();
+  await loadMonth();
+}
+
+async function loadMonth() {
+  try {
+    document.getElementById('ledger-entries-list').innerHTML = '<div class="loading">Updating ledger cards...</div>';
+    
+    const { data: sData, error: sErr } = await sb.from('monthly_salary').select('salary').eq('month_key', currentMonthKey).maybeSingle();
+    if (sErr) throw sErr;
+    
+    const { data: tData, error: tErr } = await sb.from('transactions').select('*').eq('month_key', currentMonthKey).order('date', {ascending:false});
+    if (tErr) throw tErr;
+    
+    monthData = { salary: sData?.salary || 0, transactions: tData || [] };
+    render();
+  } catch(e) { 
+    document.getElementById('ledger-entries-list').innerHTML = `<div class="loading" style="color:var(--accent2)">Data Load Error: ${e.message || e}</div>`; 
+  }
+}
+
+function render() {
+  try {
+    let spent = 0, received = 0;
+    const catTotals = { 'Supermarket':0, 'Home':0, 'Bills':0, 'Transportation':0, 'Entertainment':0, 'Savings':0, 'Others':0 };
+    
+    monthData.transactions.forEach(t => {
+      const amt = parseFloat(t.amount) || 0;
+      if (t.type === 'income') { received += amt; } 
+      else { 
+        spent += amt; 
+        if(catTotals[t.category] !== undefined) { catTotals[t.category] += amt; }
+        else { catTotals['Others'] += amt; }
+      }
+    });
+
+    const totalIncome = parseFloat(monthData.salary) + received;
+    const totalLeft = totalIncome - spent;
+
+    document.getElementById('salary-display').textContent = monthData.salary || '0';
+    document.getElementById('stat-spent').textContent = fmt(spent);
+    document.getElementById('stat-received').textContent = fmt(totalIncome);
+    
+    const leftEl = document.getElementById('stat-left');
+    leftEl.textContent = fmt(totalLeft);
+    leftEl.className = 'stat-value ' + (totalLeft >= 0 ? 'positive' : 'negative');
+
+    const catPanel = document.getElementById('cat-breakdown-panel');
+    const activeSpentCats = Object.entries(catTotals).filter(([_, val]) => val > 0).sort((a,b) => b[1] - a[1]);
+    
+    if(activeSpentCats.length === 0) {
+      catPanel.innerHTML = '<div style="text-align:center; padding:1rem; color:var(--text3); font-size:13px;">No expenses tracked this month.</div>';
+    } else {
+      catPanel.innerHTML = activeSpentCats.map(([c, val]) => `
+        <div class="cat-row">
+          <div class="cat-row-label">${CAT_ICONS[c]} ${c}</div>
+          <div class="cat-row-amount">${fmt(val)} EUR</div>
+        </div>
+      `).join('');
+    }
+
+    const listEl = document.getElementById('ledger-entries-list');
+    if (monthData.transactions.length === 0) {
+      listEl.innerHTML = '<div class="loading" style="color:var(--text3)">No entries cataloged for this month.</div>';
+      return;
+    }
+    
+    listEl.innerHTML = monthData.transactions.map(t => {
+      const isInc = t.type === 'income';
+      const cssTheme = CAT_COLORS[isInc ? 'Received' : t.category] || 'cat-others';
+      const icon = isInc ? CAT_ICONS['Received'] : (CAT_ICONS[t.category] || '📦');
+      return `
+        <div class="tx-item">
+          <div class="tx-icon ${cssTheme}">${icon}</div>
+          <div class="tx-info">
+            <div class="tx-desc">${escHtml(t.description || t.category)}</div>
+            <div class="tx-cat">${t.category} · ${new Date(t.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
+          </div>
+          <div class="tx-right">
+            <div class="tx-amount ${isInc ? 'in' : 'out'}">${isInc ? '+' : '-'}${fmt(t.amount)}</div>
+            <button class="tx-delete-btn" onclick="deleteTransaction(event, '${t.id}')">✕</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(err) { console.error(err); }
+}
+
+function toggleSalaryEdit() {
+  const display = document.getElementById('salary-display');
+  const input = document.getElementById('salary-input');
+  if (input.style.display === 'none') {
+    display.style.display = 'none'; input.style.display = 'inline-block';
+    input.value = monthData.salary; input.focus();
+  } else { saveSalary(); }
+}
+
+async function saveSalary() {
+  const val = parseFloat(document.getElementById('salary-input').value) || 0;
+  
+  const display = document.getElementById('salary-display');
+  const input = document.getElementById('salary-input');
+  display.textContent = val;
+  display.style.display = 'inline-block';
+  input.style.display = 'none';
+
+  const { error } = await sb.from('monthly_salary').upsert({month_key: currentMonthKey, salary: val}, {onConflict:'month_key'});
+  if (error) {
+    alert(`Salary Sync Blocked!\nCode: ${error.code}\nMessage: ${error.message}\nDetails: ${error.details}`);
+  }
+  await loadMonth();
+}
+
+function setType(type) {
+  currentType = type;
+  document.getElementById('type-expense').classList.toggle('active', type === 'expense');
+  document.getElementById('type-income').classList.toggle('active', type === 'income');
+  document.getElementById('cat-wrapper').style.display = type === 'income' ? 'none' : 'block';
+  document.getElementById('amount-label').textContent = type === 'income' ? 'Amount Received (€)' : 'Amount (€)';
+}
+
+function openAddModal() {
+  document.getElementById('field-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('field-desc').value = '';
+  document.getElementById('field-amount').value = '';
+  document.getElementById('field-category').value = 'Supermarket';
+  setType('expense');
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+async function saveTransaction() {
+  const date = document.getElementById('field-date').value;
+  const category = currentType === 'income' ? 'Received' : document.getElementById('field-category').value;
+  const description = document.getElementById('field-desc').value.trim();
+  const amount = parseFloat(document.getElementById('field-amount').value) || 0;
+  if (!date || amount <= 0) return;
+  
+  const payload = { month_key: currentMonthKey, type: currentType, category, description, amount, date };
+  closeModal();
+  
+  const { error } = await sb.from('transactions').insert([payload]);
+  if (error) {
+    alert(`Transaction Write Blocked!\nCode: ${error.code}\nMessage: ${error.message}\nDetails: ${error.details}`);
+  }
+  await loadMonth();
+}
+
+async function deleteTransaction(event, id) {
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+  if (!confirm("Permanently delete this row?")) return;
+  
+  const { error } = await sb.from('transactions').delete().match({ id: id });
+  if (error) {
+    alert(`Deletion Request Rejected!\nCode: ${error.code}\nMessage: ${error.message}`);
+  }
+  await loadMonth();
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  const url = "https://jikqrfseacrrekpolbsa.supabase.co";
+  let key = localStorage.getItem('sb_key_clean');
+  
+  if (!key) {
+    key = "sb_publishable_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppa3FyZnNlYWNycmVrcG9sYnNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA0MTUyMjUsImV4cCI6MjA1NjAwMTIyNX0.WIdFj06g7eG6m9Uf4gCstRIsZ48L4fX6Vn67YwD7yZk";
+  }
+
+  try { 
+    sb = supabase.createClient(url, key); 
+    const { error } = await sb.from('monthly_salary').select('salary').limit(1);
+    if (error && error.message.includes("Invalid API key")) throw new Error("Invalid Key");
+    localStorage.setItem('sb_key_clean', key);
+    initApp(); 
+  } catch(e) {
+    const freshKey = prompt("The default API Key expired or was cut off. Please paste your fresh 'default publishable key' here:");
+    if (freshKey) {
+      localStorage.setItem('sb_key_clean', freshKey.trim());
+      location.reload();
+    }
+  }
+});
+</script>
+</body>
+</html>
